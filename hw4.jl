@@ -1,7 +1,8 @@
 using Clarabel
 using Convex
-using GLMakie; Makie.inline!(true)
+#using GLMakie; Makie.inline!(true)
 using Plots
+using SCS
 
 ## exercise 5.1
 
@@ -122,3 +123,47 @@ for δ1 in δs₁, δ2 in δs₁
     @show δ1, δ2, pstarpred[k], pstarexact[k], pstarpred[k] ≤ pstarexact[k]
     k += 1
 end
+
+## +4.4
+import MathOptInterface as MOI
+N = 7
+K = 10N
+ωs = [k*π/K for k ∈ 0:K]
+a = Variable(N)
+α = Variable()
+ωcs = π/3+0.1:0.1:π
+ωc = Variable()
+H(ω, a) = a[1] + sum([a[k]'*cos(k*ω) for k in 2:N])
+as, αs = [], []
+for cut_off in ωcs
+    fix!(ωc, cut_off)
+    constraints = []
+    for Ω in ωs
+        if 0 ≤ Ω ≤ π/3
+            push!(constraints, H(Ω, a) ≥ 0.89)
+            push!(constraints, H(Ω, a) ≤ 1.12)
+        elseif evaluate(ωc) ≤ Ω ≤ π
+            push!(constraints, H(Ω, a) ≤ α)
+            push!(constraints, H(Ω, a) ≥ -α)
+        end
+    end
+
+    prob = minimize(α, constraints)
+    solve!(prob, SCS.Optimizer; silent=true, warmstart=cut_off==ωcs[1] ? false : true)
+    if prob.status == MOI.OPTIMAL
+        â = evaluate(a)
+        α̂ = evaluate(α)
+        push!(as, â)
+        push!(αs, α̂)
+    else
+        push!(as, NaN)
+        push!(αs, NaN)
+    end
+end
+h(ω, a) = a[1] + sum([a[k]'*cos(k*ω) for k in 2:N])
+# Plots.plot(w -> h(w, â), 0, π)
+# Plots.plot!([0, π/3], [0.89, 0.89], color=:red)
+# Plots.plot!([0, π/3], [1.12, 1.12], color=:red)
+# Plots.plot!([ωc, π], [α̂, α̂], color=:red)
+# Plots.plot!([ωc, π], [-α̂, -α̂], color=:red)
+Plots.plot(ωcs, αs)
