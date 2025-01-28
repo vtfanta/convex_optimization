@@ -1,8 +1,49 @@
 using Clarabel
 using Convex
+using MAT
 
 ## task 4 in additional exercises, log-optimal investment strategy
+P = [3.5000    1.1100    1.1100    1.0400    1.0100;
+     0.5000    0.9700    0.9800    1.0500    1.0100;
+     0.5000    0.9900    0.9900    0.9900    1.0100;
+     0.5000    1.0500    1.0600    0.9900    1.0100;
+     0.5000    1.1600    0.9900    1.0700    1.0100;
+     0.5000    0.9900    0.9900    1.0600    1.0100;
+     0.5000    0.9200    1.0800    0.9900    1.0100;
+     0.5000    1.1300    1.1000    0.9900    1.0100;
+     0.5000    0.9300    0.9500    1.0400    1.0100;
+     3.5000    0.9900    0.9700    0.9800    1.0100];
+m, n = size(P)
+x_unif = ones(n) / n
+probabilities = ones(m) / m
 
+x = Variable(n)
+constraints = []
+push!(constraints, x ≥ 0)
+push!(constraints, sum(x) == 1)
+criterion = [probabilities[j] * log(dot(P[j, :], x)) for j in 1:m] |> sum
+problem = maximize(criterion, constraints)
+solve!(problem, Clarabel.Optimizer)
+x_opt = evaluate(x)
+
+# simulate the investment strategy
+using Random
+Random.seed!(0)
+N = 10  # number of simulations
+T = 200 # number of time steps
+w_opt = []
+w_unif = []
+for i = 1:N
+    events = reshape(ceil.(Int, rand(1, T) * m), T)
+    P_event = P[events, :]
+    w_opt = vcat(w_opt, [1; cumprod(P_event * x_opt)])
+    w_unif = vcat(w_unif, [1; cumprod(P_event * x_unif)])
+end
+
+# plot
+using Plots
+plot(w_opt, color=:green, yscale=:log10)
+plot!(w_unif, color=:red, style=:dash, yscale=:log10)
 
 ## task 6 in additional exercises, heuristic suboptimal solution for Boolean LP
 
@@ -16,7 +57,7 @@ A = rand(m, n)
 b = A * ones(n) / 2
 c = -rand(n)
 
-# Original ILP
+# original ILP
 xILP = Variable(n, BinVar)
 problemILP = minimize(dot(c, xILP), A*xILP ≤ b)
 solve!(problemILP, HiGHS.Optimizer)
@@ -37,7 +78,7 @@ LP_val = problemLP.optval
 LP_x = evaluate(xLP)
 LP_maxviol = maximum(A*LP_x - b)
 
-# Heuristic suboptimal solution
+# heuristic suboptimal solution
 ts = range(0, 1, length=100)
 hLP_vals = []
 hLP_maxviol = []
@@ -55,7 +96,7 @@ for t in ts
     push!(hLP_maxviol, maximum(A*x_tmp - b))
 end
 
-# Plot 
+# plot 
 using Plots
 plot(ts, hLP_vals, label="Heuristic LP", xlabel="Threshold", ylabel="Objective value", legend=:topleft)
 plot(ts, hLP_maxviol, label="Heuristic LP", xlabel="Threshold", ylabel="Max violation", legend=:topleft)
