@@ -42,8 +42,46 @@ end
 
 # plot
 using Plots
-plot(w_opt, color=:green, yscale=:log10)
-plot!(w_unif, color=:red, style=:dash, yscale=:log10)
+plot(w_opt, color=:green, yscale=:log10, label="log-optimal")
+plot!(w_unif, color=:red, style=:dash, yscale=:log10, label="uniform")
+
+## task 5 in additional exercises, maximizing house profit in a gable and imputed probabilities
+n = 5
+m = 5
+A = [1 1 0 0 0; # my A is transpose of the one in the official solution
+     0 0 0 1 0;
+     1 0 0 1 1;
+     0 1 0 0 1;
+     0 0 1 0 0]
+p = [.5, .6, .6, .6, .2]
+q = [10, 5, 5, 20, 10]
+x = Variable(n)
+t = Variable()
+constraints = []
+for j = 1:m
+    push!(constraints, A[:, j]' * x ≤ t) 
+end
+push!(constraints, x ≥ 0)
+push!(constraints, x ≤ q)
+criterion = dot(p, x) - t
+problem = maximize(criterion, constraints)
+solve!(problem, Clarabel.Optimizer)
+x_opt = evaluate(x)
+t_opt = evaluate(t)
+opt_val = problem.optval
+imputed_probabilities = -getproperty.(problem.constraints[1:m], :dual)
+@show opt_val
+
+# if all is accepted
+t = Variable()
+constraints = []
+for j = 1:m
+    push!(constraints, A[:, j]' * q ≤ t) 
+end
+problem = maximize(dot(p, q) - t, constraints)
+solve!(problem, Clarabel.Optimizer)
+@show problem.optval, opt_val
+
 
 ## task 6 in additional exercises, heuristic suboptimal solution for Boolean LP
 
