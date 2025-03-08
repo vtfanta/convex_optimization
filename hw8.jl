@@ -53,6 +53,26 @@ function newton_method(A, b, c, x0; ϵ = 1e-5, α = 0.1, β = 0.7, max_iters = 1
     return x, ν, num_iter, num_iter == max_iters ? :max_iters : :converged
 end
 
+## LP solver with strictly feasible initial point
+
+function barrier_method(A, b, c, x0; μ = 15, ϵ = 1e-5, α = 0.1, β = 0.7, max_iters = 1000)
+    t = 0.1
+    x = copy(x0)
+    n = length(x)
+    history = Matrix{Float64}(undef, 2, 0)
+    num_iter = 0
+    while num_iter < max_iters
+        x_opt, ν_opt, iters, _ = newton_method(A, b, t*c, ones(n); α, β, max_iters)
+        duality_gap = n / t
+        history = [history [iters; duality_gap]]
+        if duality_gap < ϵ
+            return x_opt, ν_opt, history
+        end 
+        t *= μ
+        num_iter += 1
+    end
+end
+
 # test
 using Random
 Random.seed!(123)
@@ -61,7 +81,11 @@ m, n = 3, 5
 A = rand(m, n)
 x0 = rand(n)
 b = A * x0
+# x0 += 1e-1 * rand(n)    # make it infeasible
 c = rand(n)
 
-x, ν, num_iter, status = newton_method(A, b, c, x0)
+# x, ν, num_iter, status = newton_method(A, b, c, x0)
+x, ν, history = barrier_method(A, b, c, x0; μ = 15)
 
+# using Plots
+# plot!(cumsum(history[1,:]), history[2,:], yaxis=:log10, linetype=:steppost)
